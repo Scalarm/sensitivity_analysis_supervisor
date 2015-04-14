@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace sensitivity_analysis
 {
@@ -20,7 +21,7 @@ namespace sensitivity_analysis
 
 	class MainClass
 	{
-		private static double[] testFunction(double[] x)
+		public static double[] TestFunction(double[] x)
 		{
 			double y = 5 * x [0]
 				+ x [1] * x [1]
@@ -29,59 +30,87 @@ namespace sensitivity_analysis
 			return new double[] { y };
 		}
 
-		public static Config ReadConfigFile(string path)
+//		public static JObject ParseConfig(string configText)
+//		{
+//			return JObject.Parse(configText);
+//		}
+
+		public class ScalarmParameter
 		{
-			string configText = System.IO.File.ReadAllText(path);
-			return JsonConvert.DeserializeObject<Config>(configText);
+			public string id;
+			public double[] range;
 		}
 
 		public static void Main(string[] args)
 		{
 			// TODO: allow read config from stdin
-			Config appConfig = ReadConfigFile("config.json");
+			string configText = System.IO.File.ReadAllText("config.json");
+
+			JObject appConfig = JObject.Parse(configText);
+
+			string experimentId = appConfig["experiment_id"].ToObject<string>();
+			string experimentManagerUrl = appConfig["experiment_manager_url"].ToObject<string>();
+			string experimentManagerProxyPath = appConfig["experiment_manager_proxy_path"].ToObject<string>();
+			var parameters = appConfig["parameters"].ToObject<ScalarmParameter[]>();
+			var experimentOutputs = appConfig["outputs"].ToObject<string[]>();
+			int morrisSamplesCount = appConfig["morris_samples_count"].ToObject<int>();
+			int morrisLevelsCount = appConfig["morris_levels_count"].ToObject<int>();
 
 			// TODO: LOAD CONFIG
-			var experimentId = appConfig.experiment_id;
-			var experimentManagerUrl = appConfig.experiment_manager_url;
-			var morrisSamplesCount = appConfig.morris_samples_count;
-			var morrisLevelsCount = appConfig.morris_level_count;
+//			var experimentId = appConfig.experiment_id;
+//			var experimentManagerUrl = appConfig.experiment_manager_url;
+//			var morrisSamplesCount = appConfig.morris_samples_count;
+//			var morrisLevelsCount = appConfig.morris_level_count;
 
+			// create Scalarm Client basing on credentials from script config
 			Scalarm.Client client = null;
-			if (!String.IsNullOrEmpty(appConfig.experiment_manager_proxy_path)) {
-				client = new Scalarm.ProxyCertClient(experimentManagerUrl, new FileStream(appConfig.experiment_manager_proxy_path, FileMode.Open));
+			if (!String.IsNullOrEmpty(experimentManagerProxyPath)) {
+				client = new Scalarm.ProxyCertClient(experimentManagerUrl, new FileStream(experimentManagerProxyPath, FileMode.Open));
 			} else {
 				// TODO: support for experiment manager login/password
 				throw new NotImplementedException("Experiment Manager login password auth");
 			}
 
-			Scalarm.SupervisedExperiment experiment = client.GetExperimentById<Scalarm.SupervisedExperiment>(experimentId);
+			// TODO!
+//			Scalarm.SupervisedExperiment experiment = client.GetExperimentById<Scalarm.SupervisedExperiment>(experimentId);
 
 			// generate inputs
 			// TODO: get parameters ids and ranges
 			// assume:
 
 			// TODO: assuming that key order is the same as in config file
-			Dictionary<string, Tuple<double, double>> parameters = appConfig.parameters;
-			InputProperties[] properties = new InputProperties[parameters.Count];
-			int i = 0;
-			foreach (KeyValuePair<string, double[]> param in parameters) {
-				properties[i++] = new InputProperties(InputValuesType.Range, param.Value);
+			InputProperties[] properties = new InputProperties[parameters.Count()];
+			{
+				for (int i=0; i<parameters.Count(); ++i) {
+					properties[i] = new InputProperties(InputValuesType.Range, parameters[i].range);
+				}
 			}
 //			properties[0] = new InputProperties(InputValuesType.Range, new double[] {0, 100});
 //			properties[1] = new InputProperties(InputValuesType.Range, new double[] {-100, 100});
 //			properties[2] = new InputProperties(InputValuesType.Range, new double[] {0, 100});
 			List<MorrisDesignInput> inputs = MorrisDesignCore.GenerateInputs(properties, morrisSamplesCount, morrisLevelsCount);
 
+			// TODO fake
+			IList<Scalarm.SimulationParams> scalarmResults = new List<Scalarm.SimulationParams>();
+
 			// TODO: add points
 			foreach (MorrisDesignInput morrisPoint in inputs) {
-				var x = morrisPoint.Input[0];
-				var y = morrisPoint.Input[1];
-				var z = morrisPoint.Input[2];
-				experiment.SchedulePoint(new Scalarm.ValuesMap {
-					{"x", x},
-					{"y", y},
-					{"z", z}
-				});
+				var pointInput = new Scalarm.ValuesMap();
+				for (int i=0; i<parameters.Count(); ++i) {
+					pointInput.Add(parameters[i].id, morrisPoint.Input[i]);
+				}
+
+				// TODO: mass-scheduling
+				// TODO: real
+				// experiment.SchedulePoint(pointInput);
+
+
+				// TODO: fake - this will be done by Scalarm: SchedulePoint, add resources, wait, GetResults -> scalarmResults
+				scalarmResults.Add(new Scalarm.SimulationParams(
+					pointInput,
+					new Scalarm.ValuesMap() {
+						{"result", TestFunction(morrisPoint.Input.ToArray())[0]}
+					}));
 			}
 
 			// start HPC resources
@@ -90,32 +119,33 @@ namespace sensitivity_analysis
 			//Scalarm.PrivateMachineCredentials machine = machinesList[0];
 			// experiment.SchedulePrivateMachineJobs(1, machine);
 
-			experiment.WaitForDone();
+//			experiment.WaitForDone();
 
-			IList<Scalarm.SimulationParams> scalarmResults = experiment.GetResults();
+//			IList<Scalarm.SimulationParams> scalarmResults = experiment.GetResults();
 
 			List<MorrisDesignOutput> outputs = new List<MorrisDesignOutput>();
 
-			foreach (MorrisDesignInput input in inputs) {
-				var x = input.Input[0];
-				var y = input.Input[1];
-				var z = input.Input[2];
+			string[] ids = parameters.Select(p => p.id).ToArray();
 
-				// search for point sample in Scalarm-fetched results
-				var res = scalarmResults.Where(r => (Convert.ToDouble(r.Input["x"]) == x) && (Convert.ToDouble(r.Input["y"]) == y) && (Convert.ToDouble(r.Input["z"]) == z));
+			foreach (MorrisDesignInput morrisPoint in inputs) {
+				var res = scalarmResults.Where(r => Enumerable.SequenceEqual(r.Input.Flatten(ids).Select(x => (double) x), morrisPoint.Input));
+
+//				var x = input.Input[0];
+//				var y = input.Input[1];
+//				var z = input.Input[2];
+//
+//				// search for point sample in Scalarm-fetched results
+//				var res = scalarmResults.Where(r => (Convert.ToDouble(r.Input["x"]) == x) && (Convert.ToDouble(r.Input["y"]) == y) && (Convert.ToDouble(r.Input["z"]) == z));
 
 				if (res.Any()) {
 					// TODO: handle simulation error - do not add these output values
 
 					var output = res.First().Output;
-					// flatten Scalarm Output (create properly-ordered results list)
-					var morrisRes = new List<Double>() {
-						// TODO: specific for executor/output_reader
-						Convert.ToDouble(output["result"])
-					};
-					outputs.Add(new MorrisDesignOutput(input.InputId, morrisRes));
+					var morrisRes = new List<Double>(experimentOutputs.Select(i => (double) output[i]));
+
+					outputs.Add(new MorrisDesignOutput(morrisPoint.InputId, morrisRes));
 				} else {
-					Console.WriteLine(String.Format("Result not found for {0}", input.InputId.InputId));
+					Console.WriteLine(String.Format("Result not found for {0}", morrisPoint.InputId.InputId));
 				}
 			}
 

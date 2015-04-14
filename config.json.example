@@ -2,13 +2,14 @@
     "experiment_id": "",
     "experiment_manager_url": "https://149.156.10.32:6442",
     "experiment_manager_login": "plgtest",
-    "experiment_manager_password": "pass,
-    "experiment_manager_proxy_path": "/path/to/proxy.pem",
+    "experiment_manager_password": "pass",
+    "experiment_manager_proxy_path": "/home/user/Proxy/valid.pem",
     "parameters": [
-        ["x", 0, 100],
-        ["y", -100, 100],
-        ["z", 0, 100]
-    ]
+        {"id": "x", "range": [0, 100]},
+        {"id": "y", "range": [-100, 100]},
+        {"id": "z", "range": [0, 100]}
+    ],
+    "outputs": [ "result" ],
     "local_em": "https://172.16.67.148",
     "morris_samples_count": 10,
     "morris_levels_count": 10
