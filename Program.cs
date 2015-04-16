@@ -12,14 +12,14 @@ namespace sensitivity_analysis
 {
 	class MainClass
 	{
-		public static double[] TestFunction(double[] x)
-		{
-			double y = 5 * x [0]
-				+ x [1] * x [1]
-				+ 10 * x [2];
-
-			return new double[] { y };
-		}
+//		public static double[] TestFunction(double[] x)
+//		{
+//			double y = 5 * x [0]
+//				+ x [1] * x [1]
+//				+ 10 * x [2];
+//
+//			return new double[] { y };
+//		}
 
 		public static IDictionary<string, object> MorrisExperimentResults(MorrisDesignSensitivityAnalysisResult result, string[] paramIds)
 		{
