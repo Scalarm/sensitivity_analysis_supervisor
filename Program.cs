@@ -54,10 +54,9 @@ namespace sensitivity_analysis
 
 			JObject appConfig = JObject.Parse(configText);
 
-			// Morris Design config
+			// Scalarm and Morris Design config
 			string experimentId = appConfig["experiment_id"].ToObject<string>();
 			string experimentManagerUrl = appConfig["experiment_manager_url"].ToObject<string>();
-			string experimentManagerProxyPath = appConfig["experiment_manager_proxy_path"].ToObject<string>();
 			var parameters = appConfig["parameters"].ToObject<ScalarmParameter[]>();
 			var outputIds = appConfig["output_ids"].ToObject<string[]>();
 			int morrisSamplesCount = appConfig["morris_samples_count"].ToObject<int>();
@@ -66,12 +65,15 @@ namespace sensitivity_analysis
 
 			// create Scalarm Client basing on credentials from script config
 			Scalarm.Client client = null;
-			if (!String.IsNullOrEmpty(experimentManagerProxyPath)) {
+			if (appConfig["experiment_manager_proxy_path"] != null) {
+				string experimentManagerProxyPath = appConfig["experiment_manager_proxy_path"].ToObject<string>();
 				client = new Scalarm.ProxyCertClient(experimentManagerUrl, new FileStream(experimentManagerProxyPath, FileMode.Open));
 			} else {
-				// TODO: support for experiment manager login/password
-				throw new NotImplementedException("Experiment Manager login password auth");
+				string experimentManagerLogin = appConfig["experiment_manager_login"].ToObject<string>();
+				string experimentManagerPassword = appConfig["experiment_manager_password"].ToObject<string>();
+				client = new Scalarm.BasicAuthClient(experimentManagerUrl, experimentManagerLogin, experimentManagerPassword);
 			}
+			// ---
 
 			Scalarm.SupervisedExperiment experiment = client.GetExperimentById<Scalarm.SupervisedExperiment>(experimentId);
 
@@ -101,7 +103,7 @@ namespace sensitivity_analysis
 			// that was only for testing, resources should be added manually
 			IList<Scalarm.PrivateMachineCredentials> machinesList = client.GetPrivateMachineCredentials("jack.metal.agh.edu.pl", "scalarm");
 			Scalarm.PrivateMachineCredentials machine = machinesList[0];
-			experiment.SchedulePrivateMachineJobs(1, machine);
+			experiment.SchedulePrivateMachineJobs(4, machine);
 
 			// block until results are available
 			// also exceptions can be thrown if there are no resources
@@ -110,7 +112,7 @@ namespace sensitivity_analysis
 					experiment.WaitForDone();
 					break;
 				} catch (Exception e) {
-					Console.WriteLine("An exception was throw when waiting for results: {0)", e.ToString());
+					Console.WriteLine("An exception was throw when waiting for results: {0}", e.ToString());
 					Console.WriteLine("Waiting 5 seconds to retry...");
 					Thread.Sleep(5000);
 				}
@@ -144,7 +146,7 @@ namespace sensitivity_analysis
 
 			var notCalculated = BaseSa.GetNotCalculatedInputs<MorrisDesignInput, MorrisDesignOutput>(inputs, morrisOutputs);
 			
-			MorrisDesignSettings settings = new MorrisDesignSettings(properties, 10, 20);
+			MorrisDesignSettings settings = new MorrisDesignSettings(properties, morrisSamplesCount, morrisLevelsCount);
 			
 			var results = MorrisDesignCore.CalculateSensitivity(settings, inputs, morrisOutputs);
 			
