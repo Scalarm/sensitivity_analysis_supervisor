@@ -23,12 +23,16 @@ namespace sensitivity_analysis
 
 		public static IDictionary<string, object> MorrisExperimentResults(MorrisDesignSensitivityAnalysisResult result, string[] paramIds)
 		{
-			//result1.SaveResultsToTXTFile("wyniki.txt");
-
 			var normalizedAbsoluteMean = new Dictionary<string, double>();
+			var normalizedMean = new Dictionary<string, double>();
+			var normalizedAbsoluteStandardDeviation = new Dictionary<string, double>();
+			var normalizedStandardDeviation = new Dictionary<string, double>();
 
 			var morrisExperimentResults = new Dictionary<string, object>() {
-				{"normalized_absolute_mean", normalizedAbsoluteMean}
+				{"normalized_absolute_mean", normalizedAbsoluteMean},
+				{"normalized_mean", normalizedMean},
+				{"normalized_absolute_standard_deviation", normalizedAbsoluteStandardDeviation},
+				{"normalized_standard_deviation", normalizedStandardDeviation}
 			};
 
 			foreach (SensitivityValue sv in result.NormalizedAbsoluteMean) {
@@ -37,9 +41,26 @@ namespace sensitivity_analysis
 				normalizedAbsoluteMean.Add(paramId, value);
 			}
 
+			foreach (SensitivityValue sv in result.NormalizedMean) {
+				string paramId = paramIds[sv.ParameterId];
+				double value = sv.Value;
+				normalizedMean.Add(paramId, value);
+			}
+
+			foreach (SensitivityValue sv in result.NormalizedAbsoluteStandardDeviation) {
+				string paramId = paramIds[sv.ParameterId];
+				double value = sv.Value;
+				normalizedAbsoluteStandardDeviation.Add(paramId, value);
+			}
+
+			foreach (SensitivityValue sv in result.NormalizedStandardDeviation) {
+				string paramId = paramIds[sv.ParameterId];
+				double value = sv.Value;
+				normalizedStandardDeviation.Add(paramId, value);
+			}
+
 			return morrisExperimentResults;
 		}
-
 
 		public class ScalarmParameter
 		{
@@ -47,20 +68,39 @@ namespace sensitivity_analysis
 			public double[] range;
 		}
 
+		// Usage: mono Program.exe -> will read config from config.json
+		// Usage: mono Program.exe -stdin -> will read config from stdin
 		public static void Main(string[] args)
 		{
-			// TODO: allow read config from stdin
-			string configText = System.IO.File.ReadAllText("config.json");
+			var startTime = DateTime.Now;
+
+			string configText;
+
+			if (args.Length >= 1 && args[0] == "-stdin") {
+				configText = "";
+				string line;
+				while ((line = Console.ReadLine()) != null && line != "") {
+					configText += line;
+				}
+
+				Console.WriteLine("Config read from stdin:");
+				Console.WriteLine(configText);
+			} else {
+				configText = System.IO.File.ReadAllText("config.json");
+				Console.WriteLine("Config read from config.json");
+			}
 
 			JObject appConfig = JObject.Parse(configText);
 
 			// Scalarm and Morris Design config
-			string experimentId = appConfig["experiment_id"].ToObject<string>();
 			string experimentManagerUrl = appConfig["experiment_manager_url"].ToObject<string>();
 			var parameters = appConfig["parameters"].ToObject<ScalarmParameter[]>();
 			var outputIds = appConfig["output_ids"].ToObject<string[]>();
 			int morrisSamplesCount = appConfig["morris_samples_count"].ToObject<int>();
 			int morrisLevelsCount = appConfig["morris_levels_count"].ToObject<int>();
+
+			var simulationIdJson = appConfig["simulation_id"];
+			var simulationId = (simulationIdJson != null) ? simulationIdJson.ToObject<string>() : null;
 			// ---
 
 			// create Scalarm Client basing on credentials from script config
@@ -75,7 +115,22 @@ namespace sensitivity_analysis
 			}
 			// ---
 
-			Scalarm.SupervisedExperiment experiment = client.GetExperimentById<Scalarm.SupervisedExperiment>(experimentId);
+			// use experiment or create new with simulation_id
+			string experimentId = null;
+			Scalarm.SupervisedExperiment experiment = null;
+			if (simulationId != null) {
+				Console.WriteLine("Using simulation {0}/simulations/{1} to instantiate experiment",  experimentManagerUrl, simulationId);
+				var scenario = client.GetScenarioById(simulationId);
+				experiment = scenario.CreateSupervisedExperiment(new Dictionary<string, object> {
+					{"name", String.Format("Morris_samples_{0}", morrisSamplesCount)}
+				});
+			} else {
+				experimentId = appConfig["experiment_id"].ToObject<string>();
+				experiment =
+					client.GetExperimentById<Scalarm.SupervisedExperiment>(experimentId);
+			}
+
+			Console.WriteLine ("Using experiment {0}/experiments/{1}", experimentManagerUrl, experiment.Id);
 
 			// assuming that key order is the same as in config file
 			InputProperties[] properties = new InputProperties[parameters.Count()];
@@ -99,11 +154,11 @@ namespace sensitivity_analysis
 
 			experiment.SchedulePoints(pointsToSchedule);
 
-			// start HPC resources
-			// that was only for testing, resources should be added manually
-			IList<Scalarm.PrivateMachineCredentials> machinesList = client.GetPrivateMachineCredentials("jack.metal.agh.edu.pl", "scalarm");
-			Scalarm.PrivateMachineCredentials machine = machinesList[0];
-			experiment.SchedulePrivateMachineJobs(4, machine);
+//			// start HPC resources
+//			// that was only for testing, resources should be added manually
+//			IList<Scalarm.PrivateMachineCredentials> machinesList = client.GetPrivateMachineCredentials("jack.metal.agh.edu.pl", "scalarm");
+//			Scalarm.PrivateMachineCredentials machine = machinesList[0];
+//			experiment.SchedulePrivateMachineJobs(4, machine);
 
 			// block until results are available
 			// also exceptions can be thrown if there are no resources
@@ -112,8 +167,8 @@ namespace sensitivity_analysis
 					experiment.WaitForDone();
 					break;
 				} catch (Exception e) {
-					Console.WriteLine("An exception was throw when waiting for results: {0}", e.ToString());
-					Console.WriteLine("Waiting 5 seconds to retry...");
+					// Console.WriteLine("An exception was throw when waiting for results: {0}", e.ToString());
+					// Console.WriteLine("Waiting 5 seconds to retry...");
 					Thread.Sleep(5000);
 				}
 			}
@@ -153,9 +208,15 @@ namespace sensitivity_analysis
 			MorrisDesignSensitivityAnalysisResult result1 = results[0];
 			//result1.SaveResultsToTXTFile("wyniki.txt");
 
-			experiment.MarkAsComplete(JsonConvert.SerializeObject(MorrisExperimentResults(result1, ids)));
+			var experimentResult = JsonConvert.SerializeObject(MorrisExperimentResults(result1, ids));
 
-			// TODO: set experiment results in Scalarm, in future branch: POST set_result(result), POST mark_as_complete; new version: POST mark_as_complete(result)
+			Console.WriteLine("Experiment result:");
+			Console.WriteLine(experimentResult);
+
+			TimeSpan executionTime = (DateTime.Now - startTime);
+			Console.WriteLine("Execution time: {0} seconds", executionTime.TotalSeconds);
+
+			experiment.MarkAsComplete(JsonConvert.SerializeObject(MorrisExperimentResults(result1, ids)));
 		}
 	}
 }

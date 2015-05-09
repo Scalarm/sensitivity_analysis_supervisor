@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
-    <ProductVersion>10.0.0</ProductVersion>
+    <ProductVersion>8.0.30703</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{28C10A00-7F21-4202-8E8B-0D897AC89536}</ProjectGuid>
     <OutputType>Exe</OutputType>
@@ -20,6 +20,7 @@
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>x86</PlatformTarget>
     <ConsolePause>false</ConsolePause>
+    <Commandlineparameters>simulation 554c8a43f1ef62554b0016d2</Commandlineparameters>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
     <DebugType>full</DebugType>
@@ -53,7 +54,7 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Scalarm\scalarm_client_csharp\scalarm_client_csharp\scalarm_client_csharp.csproj">
+    <ProjectReference Include="..\..\scalarm_client_csharp\scalarm_client_csharp\scalarm_client_csharp.csproj">
       <Project>{AC52A725-90C8-4742-AB35-C221297EE872}</Project>
       <Name>scalarm_client_csharp</Name>
     </ProjectReference>
