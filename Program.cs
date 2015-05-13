@@ -85,6 +85,9 @@ namespace sensitivity_analysis
 
 				Console.WriteLine("Config read from stdin:");
 				Console.WriteLine(configText);
+			} else if (args.Length >= 2 && args[0] == "-config") {
+				configText = System.IO.File.ReadAllText(args[1]);
+				Console.WriteLine("Config read from {0}", args[1]);
 			} else {
 				configText = System.IO.File.ReadAllText("config.json");
 				Console.WriteLine("Config read from config.json");
@@ -167,8 +170,8 @@ namespace sensitivity_analysis
 					experiment.WaitForDone();
 					break;
 				} catch (Exception e) {
-					// Console.WriteLine("An exception was throw when waiting for results: {0}", e.ToString());
-					// Console.WriteLine("Waiting 5 seconds to retry...");
+					Console.WriteLine("An exception was throw when waiting for results: {0}", e.ToString());
+					Console.WriteLine("Waiting 5 seconds to retry...");
 					Thread.Sleep(5000);
 				}
 			}
