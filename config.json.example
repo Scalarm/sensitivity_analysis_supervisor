@@ -1,19 +1,18 @@
 {
     "experiment_id": "552d38a2f1ef6262ff001a07",
-    "experiment_manager_url": "https://149.156.10.32:6442",
-    "_experiment_manager_login": "plguser",
-    "_experiment_manager_password": "pass",
-    "experiment_manager_proxy_path": "/home/user/Proxy/valid.pem",
+    "address": "149.156.10.32:6442",
+    "http_schema": "https",
+    "user": "plguser",
+    "password": "pass",
+    
+    "_experiment_manager_proxy_path": "/home/user/Proxy/valid.pem",
     
     "parameters": [
-        {"id": "x", "range": [0, 100]},
-        {"id": "y", "range": [-100, 100]},
-        {"id": "z", "range": [0, 100]}
+        {"id": "x", "type": "float", "min": 0, "max": 100},
+        {"id": "y", "type": "float", "min": -100, "max": 100},
+        {"id": "z", "type": "float", "min": 0, "max": 100}
     ],
-    "output_ids": [ "result" ],
     
     "morris_samples_count": 10,
-    "morris_levels_count": 10,
-    
-    "_local_em": "https://172.16.67.148"
+    "morris_levels_count": 10
 }

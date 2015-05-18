@@ -65,7 +65,16 @@ namespace sensitivity_analysis
 		public class ScalarmParameter
 		{
 			public string id;
-			public double[] range;
+			public double min;
+			public double max;
+			// TODO: if type != float - ignore parameter
+			public string type;
+
+			public double[] Range {
+				get {
+					return new double[] { min, max };
+				}
+			}
 		}
 
 		// Usage: mono Program.exe -> will read config from config.json
@@ -96,9 +105,12 @@ namespace sensitivity_analysis
 			JObject appConfig = JObject.Parse(configText);
 
 			// Scalarm and Morris Design config
-			string experimentManagerUrl = appConfig["experiment_manager_url"].ToObject<string>();
+			string experimentManagerAddress = appConfig["address"].ToObject<string>();
+			string experimentManagerUrl = String.Format("https://{0}", experimentManagerAddress);
+
 			var parameters = appConfig["parameters"].ToObject<ScalarmParameter[]>();
-			var outputIds = appConfig["output_ids"].ToObject<string[]>();
+			// read from first simulation result after fetching results
+			// var outputIds = appConfig["output_ids"].ToObject<string[]>();
 			int morrisSamplesCount = appConfig["morris_samples_count"].ToObject<int>();
 			int morrisLevelsCount = appConfig["morris_levels_count"].ToObject<int>();
 
@@ -112,8 +124,8 @@ namespace sensitivity_analysis
 				string experimentManagerProxyPath = appConfig["experiment_manager_proxy_path"].ToObject<string>();
 				client = new Scalarm.ProxyCertClient(experimentManagerUrl, new FileStream(experimentManagerProxyPath, FileMode.Open));
 			} else {
-				string experimentManagerLogin = appConfig["experiment_manager_login"].ToObject<string>();
-				string experimentManagerPassword = appConfig["experiment_manager_password"].ToObject<string>();
+				string experimentManagerLogin = appConfig["user"].ToObject<string>();
+				string experimentManagerPassword = appConfig["password"].ToObject<string>();
 				client = new Scalarm.BasicAuthClient(experimentManagerUrl, experimentManagerLogin, experimentManagerPassword);
 			}
 			// ---
@@ -139,7 +151,7 @@ namespace sensitivity_analysis
 			InputProperties[] properties = new InputProperties[parameters.Count()];
 			{
 				for (int i=0; i<parameters.Count(); ++i) {
-					properties[i] = new InputProperties(InputValuesType.Range, parameters[i].range);
+					properties[i] = new InputProperties(InputValuesType.Range, parameters[i].Range);
 				}
 			}
 
@@ -170,8 +182,7 @@ namespace sensitivity_analysis
 					experiment.WaitForDone();
 					break;
 				} catch (Exception e) {
-					Console.WriteLine("An exception was throw when waiting for results: {0}", e.ToString());
-					Console.WriteLine("Waiting 5 seconds to retry...");
+					Console.WriteLine("An exception was throw when waiting for results: {0}; waiting 5 seconds...", e.ToString());
 					Thread.Sleep(5000);
 				}
 			}
@@ -181,6 +192,9 @@ namespace sensitivity_analysis
 			List<MorrisDesignOutput> morrisOutputs = new List<MorrisDesignOutput>();
 
 			string[] ids = parameters.Select(p => p.id).ToArray();
+			string[] outputIds = scalarmResults.First().Output.Keys.ToArray();
+
+			Console.WriteLine("Output ids:: {0}", String.Join(", ", outputIds));
 
 			foreach (MorrisDesignInput morrisPoint in inputs) {
 				// find Scalar results for morrisPoint
@@ -209,7 +223,6 @@ namespace sensitivity_analysis
 			var results = MorrisDesignCore.CalculateSensitivity(settings, inputs, morrisOutputs);
 			
 			MorrisDesignSensitivityAnalysisResult result1 = results[0];
-			//result1.SaveResultsToTXTFile("wyniki.txt");
 
 			var experimentResult = JsonConvert.SerializeObject(MorrisExperimentResults(result1, ids));
 
