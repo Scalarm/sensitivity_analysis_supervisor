@@ -12,6 +12,7 @@ namespace sensitivity_analysis
 {
 	class MainClass
 	{
+		// Some old test function; kept here to show function example
 //		public static double[] TestFunction(double[] x)
 //		{
 //			double y = 5 * x [0]
@@ -74,6 +75,10 @@ namespace sensitivity_analysis
 				get {
 					return new double[] { min, max };
 				}
+			}
+
+			public override string ToString() {
+				return string.Format("Parameter id: {0}, type: {1}, min: {2}, max: {3}", id, type, min, max);
 			}
 		}
 
@@ -151,6 +156,7 @@ namespace sensitivity_analysis
 			InputProperties[] properties = new InputProperties[parameters.Count()];
 			{
 				for (int i=0; i<parameters.Count(); ++i) {
+					Console.WriteLine(parameters[i].ToString());
 					properties[i] = new InputProperties(InputValuesType.Range, parameters[i].Range);
 				}
 			}
@@ -181,8 +187,8 @@ namespace sensitivity_analysis
 				try {
 					experiment.WaitForDone();
 					break;
-				} catch (Exception e) {
-					Console.WriteLine("An exception was throw when waiting for results: {0}; waiting 5 seconds...", e.ToString());
+				} catch (Scalarm.NoActiveSimulationManagersException e) {
+					Console.WriteLine("No active SimulationManagers, waiting 5 seconds to try again...");
 					Thread.Sleep(5000);
 				}
 			}
@@ -194,7 +200,7 @@ namespace sensitivity_analysis
 			string[] ids = parameters.Select(p => p.id).ToArray();
 			string[] outputIds = scalarmResults.First().Output.Keys.ToArray();
 
-			Console.WriteLine("Output ids:: {0}", String.Join(", ", outputIds));
+			Console.WriteLine("Output ids: {0}", String.Join(", ", outputIds));
 
 			foreach (MorrisDesignInput morrisPoint in inputs) {
 				// find Scalar results for morrisPoint
