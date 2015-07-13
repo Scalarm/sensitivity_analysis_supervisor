@@ -37,24 +37,24 @@
       <HintPath>..\SensitivityAnalysis.dll</HintPath>
     </Reference>
     <Reference Include="System.Core" />
-    <Reference Include="RestSharp">
-      <HintPath>..\packages\RestSharp.105.0.1\lib\net4\RestSharp.dll</HintPath>
-    </Reference>
     <Reference Include="Newtonsoft.Json">
       <HintPath>..\packages\Newtonsoft.Json.6.0.8\lib\net40\Newtonsoft.Json.dll</HintPath>
+      <Package>monodevelop</Package>
     </Reference>
     <Reference Include="Microsoft.CSharp" />
+    <Reference Include="RestSharp">
+      <HintPath>packages\RestSharp.105.1.0\lib\net4\RestSharp.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Scalarm\scalarm_client_csharp\scalarm_client_csharp\scalarm_client_csharp.csproj">
+    <ProjectReference Include="..\scalarm_client_csharp\scalarm_client_csharp\scalarm_client_csharp.csproj">
       <Project>{AC52A725-90C8-4742-AB35-C221297EE872}</Project>
       <Name>scalarm_client_csharp</Name>
     </ProjectReference>
