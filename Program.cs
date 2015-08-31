@@ -141,7 +141,7 @@ namespace sensitivity_analysis
 			if (simulationId != null) {
 				Console.WriteLine("Using simulation {0}/simulations/{1} to instantiate experiment",  experimentManagerUrl, simulationId);
 				var scenario = client.GetScenarioById(simulationId);
-				experiment = scenario.CreateSupervisedExperiment(new Dictionary<string, object> {
+				experiment = scenario.CreateSupervisedExperiment(null, new Dictionary<string, object> {
 					{"name", String.Format("Morris_samples_{0}", morrisSamplesCount)}
 				});
 			} else {
