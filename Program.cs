@@ -22,45 +22,70 @@ namespace sensitivity_analysis
 //			return new double[] { y };
 //		}
 
-		public static IDictionary<string, object> MorrisExperimentResults(MorrisDesignSensitivityAnalysisResult result, string[] paramIds)
+		/// <summary>
+		/// Creates Dictionary for single MoE Morris results.
+		/// Contains results of: absolute_mean, mean, absolute_standard_deviation, standard_deviation
+		/// </summary>
+		/// <returns>
+		/// The Dictionary with single MoE Morris results. Structure:
+		/// {
+		///   "parameter1": {
+		///     "absolute_mean": value,
+		///     "mean": value,
+		///     "absolute_standard_deviation": value,
+		///     "standard_deviation": value
+		///   },
+		///   "parameter2": {...}
+		/// }
+		/// </returns>
+		/// <param name="moeResult">Morris result for single MoE.</param>
+		/// <param name="paramIds">Input parameter ids to label parameters in result Dictionary.</param>
+		public static IDictionary<string, IDictionary<string, double>> MorrisMoeResults(MorrisDesignSensitivityAnalysisResult moeResult, string[] paramIds)
 		{
-			var normalizedAbsoluteMean = new Dictionary<string, double>();
-			var normalizedMean = new Dictionary<string, double>();
-			var normalizedAbsoluteStandardDeviation = new Dictionary<string, double>();
-			var normalizedStandardDeviation = new Dictionary<string, double>();
+			var morrisMoeResults = new Dictionary<string, IDictionary<string, double>>();
 
-			var morrisExperimentResults = new Dictionary<string, object>() {
-				{"normalized_absolute_mean", normalizedAbsoluteMean},
-				{"normalized_mean", normalizedMean},
-				{"normalized_absolute_standard_deviation", normalizedAbsoluteStandardDeviation},
-				{"normalized_standard_deviation", normalizedStandardDeviation}
-			};
-
-			foreach (SensitivityValue sv in result.NormalizedAbsoluteMean) {
-				string paramId = paramIds[sv.ParameterId];
-				double value = sv.Value;
-				normalizedAbsoluteMean.Add(paramId, value);
+			// for each paramId create sub-dictionary
+			foreach (string paramId in paramIds) {
+				var paramDict = MorrisParameterResults(moeResult, paramId);
+				morrisMoeResults.Add(paramId, paramDict);
 			}
 
-			foreach (SensitivityValue sv in result.NormalizedMean) {
-				string paramId = paramIds[sv.ParameterId];
-				double value = sv.Value;
-				normalizedMean.Add(paramId, value);
-			}
+			return morrisMoeResults;
+		}
 
-			foreach (SensitivityValue sv in result.NormalizedAbsoluteStandardDeviation) {
-				string paramId = paramIds[sv.ParameterId];
-				double value = sv.Value;
-				normalizedAbsoluteStandardDeviation.Add(paramId, value);
-			}
+		/// <summary>
+		/// Creates Dictionary for single parameter Morris results for particluar MoE.
+		/// </summary>
+		/// <returns>
+		/// The Dictionary with structure:
+		/// {
+		///   "absolute_mean": value,
+		///   "mean": value,
+		///   "absolute_standard_deviation": value,
+		///   "standard_deviation": value
+		/// }
+		/// 
+		/// </returns>
+		public IDictionary<string, double> MorrisParameterResults(MorrisDesignSensitivityAnalysisResult result, string paramId)
+		{
+			var paramDict = new Dictionary<string, double>();
 
-			foreach (SensitivityValue sv in result.NormalizedStandardDeviation) {
-				string paramId = paramIds[sv.ParameterId];
-				double value = sv.Value;
-				normalizedStandardDeviation.Add(paramId, value);
-			}
+			// get SA value for current parameter
+			double value;
 
-			return morrisExperimentResults;
+			value = result.NormalizedAbsoluteMean.FirstOrDefault(sv => (sv.ParameterId == paramId)).Value;
+			paramDict.Add("absolute_mean", value);
+
+			value = result.NormalizedMean.FirstOrDefault(sv => (sv.ParameterId == paramId)).Value;
+			paramDict.Add("mean", value);
+
+			value = result.NormalizedAbsoluteStandardDeviation.FirstOrDefault(sv => (sv.ParameterId == paramId)).Value;
+			paramDict.Add("absolute_standard_deviation", value);
+
+			value = result.NormalizedStandardDeviation.FirstOrDefault(sv => (sv.ParameterId == paramId)).Value;
+			paramDict.Add("standard_deviation", value);
+
+			return paramDict;
 		}
 
 		public class ScalarmParameter
@@ -227,18 +252,32 @@ namespace sensitivity_analysis
 			MorrisDesignSettings settings = new MorrisDesignSettings(properties, morrisSamplesCount, morrisLevelsCount);
 			
 			var results = MorrisDesignCore.CalculateSensitivity(settings, inputs, morrisOutputs);
-			
-			MorrisDesignSensitivityAnalysisResult result1 = results[0];
 
-			var experimentResult = JsonConvert.SerializeObject(MorrisExperimentResults(result1, ids));
 
-			Console.WriteLine("Experiment result:");
-			Console.WriteLine(experimentResult);
+			// -- format results to send them to Scalarm
+
+			// for each MoE generate sensitivity analysis results
+			var moesDict = new Dictionary<string, IDictionary<string, IDictionary<string, double>>>();
+			for (int i = 0; i < outputIds.Length; ++i) {
+				MorrisDesignSensitivityAnalysisResult result = results[i];
+				string moeName = outputIds[i];
+				Console.WriteLine("Formatting results for moe {0}...", moeName);
+				var moeResult = MorrisMoeResults(result, ids);
+
+				// add MoE results to MoEs results dict
+				moesDict.Add(moeName, moeResult);
+			}
+
+			// this will be a Dictionary finally converted to experiment results JSON
+			var morrisExperimentResults = new Dictionary<string, object>() {
+				{"sensitivity_analysis_method", "morris"},
+				{"moes", moesDict}
+			};
 
 			TimeSpan executionTime = (DateTime.Now - startTime);
 			Console.WriteLine("Execution time: {0} seconds", executionTime.TotalSeconds);
 
-			experiment.MarkAsComplete(JsonConvert.SerializeObject(MorrisExperimentResults(result1, ids)));
+			experiment.MarkAsComplete(JsonConvert.SerializeObject(morrisExperimentResults));
 		}
 	}
 }
