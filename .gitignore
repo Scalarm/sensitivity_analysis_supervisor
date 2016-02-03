@@ -1,2 +1,8 @@
 bin/
+obj/
 Properties/
+packages/
+SensitivityAnalysis.dll
+SensitivityAnalysis.pdb
+sensitivity_analysis.userprefs
+.DS_Store
