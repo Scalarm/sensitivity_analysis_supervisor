@@ -83,6 +83,7 @@ namespace sensitivity_analysis
 		}
 
 		// Usage: mono Program.exe -> will read config from config.json
+		// Usage: mono Program.exe -config <path> -> read config from path
 		// Usage: mono Program.exe -stdin -> will read config from stdin
 		public static void Main(string[] args)
 		{
@@ -123,31 +124,38 @@ namespace sensitivity_analysis
 			var simulationId = (simulationIdJson != null) ? simulationIdJson.ToObject<string>() : null;
 			// ---
 
-			// create Scalarm Client basing on credentials from script config
-			Scalarm.Client client = null;
-			if (appConfig["experiment_manager_proxy_path"] != null) {
-				string experimentManagerProxyPath = appConfig["experiment_manager_proxy_path"].ToObject<string>();
-				client = new Scalarm.ProxyCertClient(experimentManagerUrl, new FileStream(experimentManagerProxyPath, FileMode.Open));
-			} else {
-				string experimentManagerLogin = appConfig["user"].ToObject<string>();
-				string experimentManagerPassword = appConfig["password"].ToObject<string>();
-				client = new Scalarm.BasicAuthClient(experimentManagerUrl, experimentManagerLogin, experimentManagerPassword);
-			}
-			// ---
+			// only for testing!
+			var isFakeExperiment = (appConfig["fake_experiment"] != null ? appConfig["fake_experiment"].ToObject<bool>() : false);
 
-			// use experiment or create new with simulation_id
-			string experimentId = null;
-			Scalarm.SupervisedExperiment experiment = null;
-			if (simulationId != null) {
-				Console.WriteLine("Using simulation {0}/simulations/{1} to instantiate experiment",  experimentManagerUrl, simulationId);
-				var scenario = client.GetScenarioById(simulationId);
-				experiment = scenario.CreateSupervisedExperiment(null, new Dictionary<string, object> {
-					{"name", String.Format("Morris_samples_{0}", morrisSamplesCount)}
-				});
+			Scalarm.ISupervisedExperiment experiment = null;
+
+			if (isFakeExperiment) {
+				experiment = new Scalarm.FakeSupervisedExperiment();
 			} else {
-				experimentId = appConfig["experiment_id"].ToObject<string>();
-				experiment =
-					client.GetExperimentById<Scalarm.SupervisedExperiment>(experimentId);
+				// create Scalarm Client basing on credentials from script config
+				Scalarm.Client client = null;
+				if (appConfig["experiment_manager_proxy_path"] != null) {
+					string experimentManagerProxyPath = appConfig["experiment_manager_proxy_path"].ToObject<string>();
+					client = new Scalarm.ProxyCertClient(experimentManagerUrl, new FileStream(experimentManagerProxyPath, FileMode.Open));
+				} else {
+					string experimentManagerLogin = appConfig["user"].ToObject<string>();
+					string experimentManagerPassword = appConfig["password"].ToObject<string>();
+					client = new Scalarm.BasicAuthClient(experimentManagerUrl, experimentManagerLogin, experimentManagerPassword);
+				}
+				// ---
+				// use experiment or create new with simulation_id
+				string experimentId = null;
+				if (simulationId != null) {
+					Console.WriteLine("Using simulation {0}/simulations/{1} to instantiate experiment",  experimentManagerUrl, simulationId);
+					var scenario = client.GetScenarioById(simulationId);
+					experiment = scenario.CreateSupervisedExperiment(null, new Dictionary<string, object> {
+						{"name", String.Format("Morris_samples_{0}", morrisSamplesCount)}
+					});
+				} else {
+					experimentId = appConfig["experiment_id"].ToObject<string>();
+					experiment =
+						client.GetExperimentById<Scalarm.ISupervisedExperiment>(experimentId);
+				}
 			}
 
 			Console.WriteLine ("Using experiment {0}/experiments/{1}", experimentManagerUrl, experiment.Id);
@@ -161,7 +169,8 @@ namespace sensitivity_analysis
 				}
 			}
 
-			List<MorrisDesignInput> inputs = MorrisDesignCore.GenerateInputs(properties, morrisSamplesCount, morrisLevelsCount);
+			MorrisDesignSettings mdSettings = new MorrisDesignSettings(properties, morrisSamplesCount, morrisLevelsCount);
+			List<MorrisDesignInput> inputs = MorrisDesign.GenerateInputs(mdSettings);
 			IList<Scalarm.ValuesMap> pointsToSchedule = new List<Scalarm.ValuesMap>(inputs.Count);
 
 			foreach (MorrisDesignInput morrisPoint in inputs) {
@@ -173,6 +182,7 @@ namespace sensitivity_analysis
 				pointsToSchedule.Add(pointInput);
 			}
 
+			// TODO mocked
 			experiment.SchedulePoints(pointsToSchedule);
 
 //			// start HPC resources
@@ -183,6 +193,8 @@ namespace sensitivity_analysis
 
 			// block until results are available
 			// also exceptions can be thrown if there are no resources
+
+			// TODO mocked
 			while (true) {
 				try {
 					experiment.WaitForDone();
@@ -193,6 +205,7 @@ namespace sensitivity_analysis
 				}
 			}
 
+			// TODO mocked
 			IList<Scalarm.SimulationParams> scalarmResults = experiment.GetResults();
 
 			List<MorrisDesignOutput> morrisOutputs = new List<MorrisDesignOutput>();
@@ -223,10 +236,8 @@ namespace sensitivity_analysis
 			}
 
 			var notCalculated = BaseSa.GetNotCalculatedInputs<MorrisDesignInput, MorrisDesignOutput>(inputs, morrisOutputs);
-			
-			MorrisDesignSettings settings = new MorrisDesignSettings(properties, morrisSamplesCount, morrisLevelsCount);
-			
-			var results = MorrisDesignCore.CalculateSensitivity(settings, inputs, morrisOutputs);
+						
+			var results = MorrisDesign.CalculateSensitivity(mdSettings, inputs, morrisOutputs);
 			
 			MorrisDesignSensitivityAnalysisResult result1 = results[0];
 

@@ -57,3 +57,31 @@ This is a Scalarm Pathfinder supervisor. For more information see: https://githu
     * ``min``: float, lower limit of parameter value range to search
     * ``max``: float, upper limit of parameter value range to search
     * ~~``start_value``: float, currently not used~~
+* ``fake_experiment`` (optional): boolean, if true - do not use real Scalarm server, randomly generate results instead and write SA results to stdout
+
+
+# Technical documentation
+
+Some aspects of internal implementation. Not for regular users :)
+
+## Getting Scalarm Results
+
+After computing simulation by Scalarm:
+```
+IList<Scalarm.SimulationParams> scalarmResults = experiment.GetResults()
+```
+
+This is an array of ``Scalarm.SimulationParams``. For example single ``SimulationParams`` (some JSON-like pseudocode):
+```
+{
+  Input: { // Scalarm.ValuesMap
+    "parameter1": 1000.0,
+    "paraneter2": 100.0
+  },
+  Output: { // Scalarm.ValuesMap
+    "moe": 100000.0
+  }
+}
+```
+
+When converting to SA library format, currently *only one (first) Scalarm result is analyzed*: ``var output = res.First().Output;``. This will be changed someday.
