@@ -13,8 +13,7 @@ This is a Scalarm Pathfinder supervisor. For more information see: https://githu
 
 ```json
 {
-  "morris_samples_count": 2,
-  "morris_levels_count": 3,
+  "sobol_base_inputs_count": 1000,
   "experiment_id": "56b1b4f9f83f4910c0000261",
   "user": "f784b56e-e02c-4ede-9d85-fb3ed5566cc5",
   "password":" <ciach>",
@@ -36,8 +35,7 @@ This is a Scalarm Pathfinder supervisor. For more information see: https://githu
 
 ## Configuration keys
 
-* ``morris_samples_count``: integer >= 1, samples count parameter for Morris algorithm
-* ``morris_levels_count``: integer >= 1, levels count parameter for Morris algorithm
+* ``sobol_base_inputs_count``: integer, one of Sobol method parameter
 * ``address``: string, address of Scalarm Experiment Manager (without protocol provided)
 * credentials - either BasicAuth login/password or X509 proxy certificate used to authenticate in Scalarm
   * BasicAuth
