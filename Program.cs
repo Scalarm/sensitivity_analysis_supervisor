@@ -1,5 +1,6 @@
 using System;
 using SensitivityAnalysis;
+using SensitivityAnalysis.MethodOfSobol;
 using SensitivityAnalysis.MorrisDesign;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,55 +13,21 @@ namespace sensitivity_analysis
 {
 	class MainClass
 	{
-		// Some old test function; kept here to show function example
-//		public static double[] TestFunction(double[] x)
-//		{
-//			double y = 5 * x [0]
-//				+ x [1] * x [1]
-//				+ 10 * x [2];
-//
-//			return new double[] { y };
-//		}
+		public static Dictionary<string, IDictionary<string, IDictionary<string, double>>> CreateMoesDict<T>(T[] results, string[] parameterIds, String[] outputIds) {
+			// TODO: make a function with generics (?) where results is of type Array<T>
+			// for each MoE generate sensitivity analysis results
+			var moesDict = new Dictionary<string, IDictionary<string, IDictionary<string, double>>>();
+			for (int i = 0; i < outputIds.Length; ++i) {
+				T result = results[i];
+				string moeName = outputIds[i];
+				Console.WriteLine("Formatting results for moe {0}...", moeName);
+				IResultsAnalyzer<T> analyzer = (IResultsAnalyzer<T>)ResultsAnalyzerFactory.GetResultsAnalyzer(results.GetType());
+				var moeResult = analyzer.MoeResults(result, parameterIds);
 
-		public static IDictionary<string, object> MorrisExperimentResults(MorrisDesignSensitivityAnalysisResult result, string[] paramIds)
-		{
-			var normalizedAbsoluteMean = new Dictionary<string, double>();
-			var normalizedMean = new Dictionary<string, double>();
-			var normalizedAbsoluteStandardDeviation = new Dictionary<string, double>();
-			var normalizedStandardDeviation = new Dictionary<string, double>();
-
-			var morrisExperimentResults = new Dictionary<string, object>() {
-				{"normalized_absolute_mean", normalizedAbsoluteMean},
-				{"normalized_mean", normalizedMean},
-				{"normalized_absolute_standard_deviation", normalizedAbsoluteStandardDeviation},
-				{"normalized_standard_deviation", normalizedStandardDeviation}
-			};
-
-			foreach (SensitivityValue sv in result.NormalizedAbsoluteMean) {
-				string paramId = paramIds[sv.ParameterId];
-				double value = sv.Value;
-				normalizedAbsoluteMean.Add(paramId, value);
+				// add MoE results to MoEs results dict
+				moesDict.Add(moeName, moeResult);
 			}
-
-			foreach (SensitivityValue sv in result.NormalizedMean) {
-				string paramId = paramIds[sv.ParameterId];
-				double value = sv.Value;
-				normalizedMean.Add(paramId, value);
-			}
-
-			foreach (SensitivityValue sv in result.NormalizedAbsoluteStandardDeviation) {
-				string paramId = paramIds[sv.ParameterId];
-				double value = sv.Value;
-				normalizedAbsoluteStandardDeviation.Add(paramId, value);
-			}
-
-			foreach (SensitivityValue sv in result.NormalizedStandardDeviation) {
-				string paramId = paramIds[sv.ParameterId];
-				double value = sv.Value;
-				normalizedStandardDeviation.Add(paramId, value);
-			}
-
-			return morrisExperimentResults;
+			return moesDict;
 		}
 
 		public class ScalarmParameter
@@ -117,17 +84,17 @@ namespace sensitivity_analysis
 			var parameters = appConfig["parameters"].ToObject<ScalarmParameter[]>();
 			// read from first simulation result after fetching results
 			// var outputIds = appConfig["output_ids"].ToObject<string[]>();
-			int morrisSamplesCount = appConfig["morris_samples_count"].ToObject<int>();
-			int morrisLevelsCount = appConfig["morris_levels_count"].ToObject<int>();
 
 			var simulationIdJson = appConfig["simulation_id"];
 			var simulationId = (simulationIdJson != null) ? simulationIdJson.ToObject<string>() : null;
+
+			string methodType = appConfig["method_type"].ToObject<string>();
 			// ---
 
 			// only for testing!
 			var isFakeExperiment = (appConfig["fake_experiment"] != null ? appConfig["fake_experiment"].ToObject<bool>() : false);
 
-			Scalarm.ISupervisedExperiment experiment = null;
+			Scalarm.SupervisedExperiment experiment = null;
 
 			if (isFakeExperiment) {
 				experiment = new Scalarm.FakeSupervisedExperiment();
@@ -149,12 +116,12 @@ namespace sensitivity_analysis
 					Console.WriteLine("Using simulation {0}/simulations/{1} to instantiate experiment",  experimentManagerUrl, simulationId);
 					var scenario = client.GetScenarioById(simulationId);
 					experiment = scenario.CreateSupervisedExperiment(null, new Dictionary<string, object> {
-						{"name", String.Format("Morris_samples_{0}", morrisSamplesCount)}
+						{"name", String.Format("CSharp SA {0}", methodType)}
 					});
 				} else {
 					experimentId = appConfig["experiment_id"].ToObject<string>();
 					experiment =
-						client.GetExperimentById<Scalarm.ISupervisedExperiment>(experimentId);
+						client.GetExperimentById<Scalarm.SupervisedExperiment>(experimentId);
 				}
 			}
 
@@ -169,14 +136,48 @@ namespace sensitivity_analysis
 				}
 			}
 
-			MorrisDesignSettings mdSettings = new MorrisDesignSettings(properties, morrisSamplesCount, morrisLevelsCount);
-			List<MorrisDesignInput> inputs = MorrisDesign.GenerateInputs(mdSettings);
-			IList<Scalarm.ValuesMap> pointsToSchedule = new List<Scalarm.ValuesMap>(inputs.Count);
+			// TODO remove this
+			BaseSettings saSettings = null;
+			BaseSa saMethod = null;
+			BaseInputs inputs = null;
 
-			foreach (MorrisDesignInput morrisPoint in inputs) {
+			switch (methodType)
+			{
+			case "sobol":
+				int sobolBaseInputsCount = appConfig["sobol_base_inputs_count"].ToObject<int>();
+				Console.WriteLine("Using Sobol method with config:");
+				Console.WriteLine("- sobol_base_inputs_count: " + sobolBaseInputsCount);
+
+				saSettings = new MethodOfSobolSettings(properties, sobolBaseInputsCount);
+				saMethod = new MethodOfSobol();
+				break;
+			case "morris":
+				int morrisSamplesCount = appConfig["morris_samples_count"].ToObject<int>();
+				int morrisLevelsCount = appConfig["morris_levels_count"].ToObject<int>();
+				Console.WriteLine("Using Sobol method with config:");
+				Console.WriteLine("- morris_samples_count: " + morrisSamplesCount);
+				Console.WriteLine("- morris_levels_count: " + morrisLevelsCount);
+
+				saSettings = new MorrisDesignSettings(properties, morrisSamplesCount, morrisLevelsCount);
+				saMethod = new MorrisDesign();
+
+				break;
+			default:
+				// TODO: use experiment end with error reason
+				var errorMsg = "FATAL: method type not supported: '" + methodType + "'";
+				Console.WriteLine(errorMsg);
+				throw new Exception(errorMsg);
+			}
+
+			saMethod.GenerateInputs(saSettings);
+			inputs = saMethod.Inputs;
+
+			IList<Scalarm.ValuesMap> pointsToSchedule = new List<Scalarm.ValuesMap>(inputs.Inputs.Count);
+
+			foreach (BaseInput saPoint in inputs.Inputs) {
 				var pointInput = new Scalarm.ValuesMap();
 				for (int i=0; i<parameters.Count(); ++i) {
-					pointInput.Add(parameters[i].id, morrisPoint.Input[i]);
+					pointInput.Add(parameters[i].id, saPoint.Input[i]);
 				}
 
 				pointsToSchedule.Add(pointInput);
@@ -208,17 +209,15 @@ namespace sensitivity_analysis
 			// TODO mocked
 			IList<Scalarm.SimulationParams> scalarmResults = experiment.GetResults();
 
-			List<MorrisDesignOutput> morrisOutputs = new List<MorrisDesignOutput>();
-
 			string[] ids = parameters.Select(p => p.id).ToArray();
 			string[] outputIds = scalarmResults.First().Output.Keys.ToArray();
 
 			Console.WriteLine("Output ids: {0}", String.Join(", ", outputIds));
 
-			foreach (MorrisDesignInput morrisPoint in inputs) {
+			foreach (BaseInput saPoint in inputs.Inputs) {
 				// find Scalar results for morrisPoint
 				// TODO: optimize: store flatten Scalarm input in dictionary
-				var res = scalarmResults.Where(r => Enumerable.SequenceEqual(r.Input.Flatten(ids).Select(x => Convert.ToDouble(x)), morrisPoint.Input));
+				var res = scalarmResults.Where(r => Enumerable.SequenceEqual(r.Input.Flatten(ids).Select(x => Convert.ToDouble(x)), saPoint.Input));
 
 				if (res.Any()) {
 					// TODO: handle simulation error - do not add these output values
@@ -227,29 +226,57 @@ namespace sensitivity_analysis
 					var output = res.First().Output;
 
 					// flatten results with conversion to double
-					var morrisRes = new List<Double>(output.Flatten(outputIds).Select(x => Convert.ToDouble(x)));
+					List<Double> resultValues = new List<Double>(output.Flatten(outputIds).Select(x => Convert.ToDouble(x)));
 
-					morrisOutputs.Add(new MorrisDesignOutput(morrisPoint.InputId, morrisRes));
+					saMethod.Outputs.Add(saPoint.InputId, resultValues);
 				} else {
-					Console.WriteLine(String.Format("Result not found for {0}", morrisPoint.InputId.InputId));
+					Console.WriteLine(String.Format("Result not found for {0}", saPoint.InputId));
 				}
 			}
 
-			var notCalculated = BaseSa.GetNotCalculatedInputs<MorrisDesignInput, MorrisDesignOutput>(inputs, morrisOutputs);
-						
-			var results = MorrisDesign.CalculateSensitivity(mdSettings, inputs, morrisOutputs);
-			
-			MorrisDesignSensitivityAnalysisResult result1 = results[0];
+			// TODO: use "not calculated" (method)
 
-			var experimentResult = JsonConvert.SerializeObject(MorrisExperimentResults(result1, ids));
+			// this will be a Dictionary finally converted to experiment results JSON
+			Dictionary<string, object> experimentResults = null;
 
-			Console.WriteLine("Experiment result:");
-			Console.WriteLine(experimentResult);
+			string resultsJson = null;
+
+			var moesDict = new Dictionary<string, IDictionary<string, IDictionary<string, double>>>();
+
+			switch (methodType)
+			{
+			case "morris":
+				{
+					MorrisDesignSensitivityAnalysisResult[] results =
+						((MorrisDesign)saMethod).CalculateSensitivity(saSettings);
+
+					moesDict = CreateMoesDict<MorrisDesignSensitivityAnalysisResult>(results, ids, outputIds);
+				}
+				break;
+			case "sobol":
+				{
+					MethodOfSobolSensitivityAnalysisResult[] results =
+						((MethodOfSobol)saMethod).CalculateSensitivity(saSettings);
+
+					moesDict = CreateMoesDict<MethodOfSobolSensitivityAnalysisResult>(results, ids, outputIds);
+				}
+				break;
+			}
+
+			experimentResults = new Dictionary<string, object>() {
+				{"sensitivity_analysis_method", methodType},
+				{"moes", moesDict}
+			};
+
+			// -- format results to send them to Scalarm	
 
 			TimeSpan executionTime = (DateTime.Now - startTime);
 			Console.WriteLine("Execution time: {0} seconds", executionTime.TotalSeconds);
 
-			experiment.MarkAsComplete(JsonConvert.SerializeObject(MorrisExperimentResults(result1, ids)));
+			resultsJson = JsonConvert.SerializeObject(experimentResults);
+			Console.WriteLine("SA results:\n" + resultsJson);
+
+			experiment.MarkAsComplete(resultsJson);
 		}
 	}
 }

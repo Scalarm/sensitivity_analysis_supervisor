@@ -47,6 +47,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="IResultsAnalyzer.cs" />
+    <Compile Include="ResultsAnalyzerFactory.cs" />
+    <Compile Include="MethodOfSobolResultsAnalyzer.cs" />
+    <Compile Include="MorrisDesignResultsAnalyzer.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
