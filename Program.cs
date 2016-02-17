@@ -94,7 +94,7 @@ namespace sensitivity_analysis
 			// only for testing!
 			var isFakeExperiment = (appConfig["fake_experiment"] != null ? appConfig["fake_experiment"].ToObject<bool>() : false);
 
-			Scalarm.ISupervisedExperiment experiment = null;
+			Scalarm.SupervisedExperiment experiment = null;
 
 			if (isFakeExperiment) {
 				experiment = new Scalarm.FakeSupervisedExperiment();
@@ -121,7 +121,7 @@ namespace sensitivity_analysis
 				} else {
 					experimentId = appConfig["experiment_id"].ToObject<string>();
 					experiment =
-						client.GetExperimentById<Scalarm.ISupervisedExperiment>(experimentId);
+						client.GetExperimentById<Scalarm.SupervisedExperiment>(experimentId);
 				}
 			}
 
