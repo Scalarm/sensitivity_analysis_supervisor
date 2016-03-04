@@ -1,6 +1,24 @@
 This is a Scalarm Pathfinder supervisor. For more information see: https://github.com/Scalarm/scalarm_experiment_supervisor
 
-# Execution parameters
+# Dependencies
+
+This program requires following libraries placed in its root directory to run:
+* ``Newtonsoft.Json.dll`` - version >= 6.0.8
+* ``RestSharp.dll`` - version >= 105.0.1
+* ``Scalarm.dll`` - can be found here: https://github.com/Scalarm/scalarm_client_csharp
+* ``SensitivityAnalysis.dll`` - a proprietary sensitivity analysis library by Daniel Bachniak; not available publicly at the moment
+
+# Building
+
+Program builds in .Net4.0 compiler - both Mono and VisualStudio, but only Mono is officially supported and tested. The easiest way is to open project file in IDE, satisfy dependencies (listed above) and build the project.
+
+# Execution
+
+Please put all dependencies DLLs in compiled program root directory and launch Program.exe with Mono/.Net runtime.
+**At least Mono 4.2 runtime is required to run.** The program will not run under Mono 3.x!
+
+
+## Execution parameters
 
 * ``mono Program.exe`` will read config from ``config.json`` in current directory
 * ``mono Program.exe -config <config_path>`` will read config from ``<config_path>`` file
