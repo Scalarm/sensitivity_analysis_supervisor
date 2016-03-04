@@ -172,5 +172,3 @@ This is an array of ``Scalarm.SimulationParams``. For example single ``Simulatio
   }
 }
 ```
-
-When converting to SA library format, currently *only one (first) Scalarm result is analyzed*: ``var output = res.First().Output;``. This will be changed someday.
