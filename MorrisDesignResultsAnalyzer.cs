@@ -18,16 +18,28 @@ namespace sensitivity_analysis
 			// get SA value for current parameter
 			double value;
 
-			value = result.NormalizedAbsoluteMean.FirstOrDefault(sv => (sv.ParameterId == paramIndex)).Value;
+			value = result.AbsoluteMeans.FirstOrDefault(sv => (sv.ParameterId == paramIndex)).Value;
+			paramDict.Add("absolute_mean", value);
+
+			value = result.Means.FirstOrDefault(sv => (sv.ParameterId == paramIndex)).Value;
+			paramDict.Add("mean", value);
+
+			value = result.NormalizedAbsoluteMeans.FirstOrDefault(sv => (sv.ParameterId == paramIndex)).Value;
 			paramDict.Add("normalized_absolute_mean", value);
 
-			value = result.NormalizedMean.FirstOrDefault(sv => (sv.ParameterId == paramIndex)).Value;
+			value = result.NormalizedMeans.FirstOrDefault(sv => (sv.ParameterId == paramIndex)).Value;
 			paramDict.Add("normalized_mean", value);
 
-			value = result.NormalizedAbsoluteStandardDeviation.FirstOrDefault(sv => (sv.ParameterId == paramIndex)).Value;
+			value = result.AbsoluteStandardDeviations.FirstOrDefault(sv => (sv.ParameterId == paramIndex)).Value;
+			paramDict.Add("absolute_standard_deviation", value);
+
+			value = result.StandardDeviations.FirstOrDefault(sv => (sv.ParameterId == paramIndex)).Value;
+			paramDict.Add("standard_deviation", value);
+
+			value = result.NormalizedAbsoluteStandardDeviations.FirstOrDefault(sv => (sv.ParameterId == paramIndex)).Value;
 			paramDict.Add("normalized_absolute_standard_deviation", value);
 
-			value = result.NormalizedStandardDeviation.FirstOrDefault(sv => (sv.ParameterId == paramIndex)).Value;
+			value = result.NormalizedStandardDeviations.FirstOrDefault(sv => (sv.ParameterId == paramIndex)).Value;
 			paramDict.Add("normalized_standard_deviation", value);
 
 			return paramDict;

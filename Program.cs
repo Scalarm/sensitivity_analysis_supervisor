@@ -54,6 +54,9 @@ namespace sensitivity_analysis
 		// Usage: mono Program.exe -stdin -> will read config from stdin
 		public static void Main(string[] args)
 		{
+			string version = "2017_03_07_2143";
+			Console.WriteLine("Scalarm SA C#, version " + version);
+
 			var startTime = DateTime.Now;
 
 			string configText;
